@@ -8,4 +8,4 @@ serve:
 	parcel serve assets/index.html -o index--parcelified.html
 
 format:
-	find src/ -name "*.purs" -exec purty format {} --write \;
+	find src/ test/ -name "*.purs" -exec purty format {} --write \;

@@ -8,7 +8,7 @@ import Halogen.VDom.Driver (runUI)
 
 main :: Effect Unit
 main = do
-  locations <- { fst: _, snd: _ } <$> Board.randomLocation <*> Board.randomLocation
+  locations <- Board.initialLocations
   HA.runHalogenAff do
     body <- HA.awaitBody
     runUI Board.component locations body
