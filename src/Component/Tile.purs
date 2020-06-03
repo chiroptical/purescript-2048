@@ -6,6 +6,8 @@ import Data.Array (singleton)
 -- halogen
 import Halogen as H
 import Halogen.HTML as HH
+import Halogen.HTML.CSS as CSS
+import CSS as CSS
 
 type State
   = Maybe Int
@@ -30,7 +32,14 @@ component =
     }
   where
   render :: forall action. State -> H.ComponentHTML action () m
-  render st = HH.td_ (maybe [] (singleton <<< HH.text <<< show) st)
+  render st =
+    HH.td
+      [ CSS.style do
+          CSS.width (CSS.px 20.0)
+          CSS.height (CSS.px 20.0)
+          CSS.border CSS.solid (CSS.px 1.0) CSS.black
+      ]
+      (maybe [] (singleton <<< HH.text <<< show) st)
 
 handleAction :: forall o m. Action -> H.HalogenM State Action () o m Unit
 handleAction = case _ of

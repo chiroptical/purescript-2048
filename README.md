@@ -16,8 +16,16 @@ If you get something like:
 First, add a package description to `packages.dhall` under `additions`. Then
 add that package name to `spago.dhall`
 
-### Next steps
+### TODO
 
-1. Actually handle keyboard inputs and update state
-2. Initial board state should include 4's as a low probability
-3. Build a 2048 type instead of using Integer
+1. Initial board state is more complicated than two randomly placed 2's
+2. Build a 2048 type instead of using `Int`
+3. Unit testing, first candidate is the rotation functions
+4. Property testing
+5. Explore lenses in Purescript
+6. Refactor `foldRight` into a more readable state
+7. UI Improvements w/ CSS transitions
+8. Reset game buttons
+9. Win game notification
+10. Current Score
+11. Possibly Best Score (needs cookies)

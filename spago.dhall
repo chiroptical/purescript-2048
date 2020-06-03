@@ -8,6 +8,7 @@ You can edit this file as you like.
   , "effect"
   , "generics-rep"
   , "halogen"
+  , "halogen-css"
   , "psci-support"
   , "pseudo-random"
   ]

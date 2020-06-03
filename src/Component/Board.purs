@@ -2,12 +2,12 @@ module Component.Board where
 
 import Prelude
 import Component.Tile as Tile
-import Control.Category (identity)
-import Control.Monad.State.Class (modify_, get)
+import Control.Monad.State.Class (modify_)
 import Data.Array ((:), reverse, findIndex, index, snoc, updateAt, insertAt, zipWith)
 import Data.Const (Const)
 import Data.Enum (class Enum, toEnum, fromEnum, class BoundedEnum)
 import Data.Foldable (foldl, foldr)
+import Data.Either as E
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Bounded (genericTop, genericBottom)
 import Data.Generic.Rep.Enum (genericCardinality, genericFromEnum, genericPred, genericSucc, genericToEnum)
@@ -15,10 +15,10 @@ import Data.Generic.Rep.Show (genericShow)
 import Data.Map (Map)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), maybe, isJust)
+import Data.Set (Set)
 import Data.Symbol (SProxy(..))
 import Effect (Effect)
 import Effect.Aff (Aff)
-import Effect.Console as Console
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.Query.EventSource as ES
@@ -29,6 +29,8 @@ import Web.HTML.Window (document) as Web
 import Web.UIEvent.KeyboardEvent (KeyboardEvent)
 import Web.UIEvent.KeyboardEvent as KE
 import Web.UIEvent.KeyboardEvent.EventTypes as KET
+import CSS as CSS
+import Halogen.HTML.CSS as CSS
 
 type State
   = { board :: Board2048
@@ -64,6 +66,13 @@ fourWrappingSucc = case _ of
   Two -> Three
   Three -> Zero
 
+fourWrappingPred :: Four -> Four
+fourWrappingPred = case _ of
+  Zero -> Three
+  One -> Zero
+  Two -> One
+  Three -> Two
+
 type Input
   = { fst :: Location, snd :: Location }
 
@@ -97,8 +106,6 @@ randomFour = do
 randomLocation :: Effect Location
 randomLocation = { row: _, column: _ } <$> randomFour <*> randomFour
 
-{-- reduceLeft :: Board2048 -> Board2048 --}
-{-- reduceLeft = ?a --}
 data Action
   = Init
   | HandleKey H.SubscriptionId KeyboardEvent
@@ -145,7 +152,10 @@ component =
       mkTileSlot' = mkTileSlot state
     in
       HH.div_
-        [ HH.table_
+        [ HH.table
+            [ CSS.style do
+                CSS.border CSS.solid (CSS.px 2.0) CSS.black
+            ]
             [ HH.tr_
                 [ mkTileSlot' { row: Zero, column: Zero }
                 , mkTileSlot' { row: Zero, column: One }
@@ -183,12 +193,26 @@ component =
           KET.keyup
           (HTMLDocument.toEventTarget document)
           (map (HandleKey sid) <<< KE.fromEvent)
-    HandleKey sid ev -> case KE.key ev of
-      "ArrowRight" -> modify_ handleRightArrow
-      "ArrowLeft" -> modify_ handleLeftArrow
-      "ArrowUp" -> H.liftEffect $ Console.log "Got up"
-      "ArrowDown" -> H.liftEffect $ Console.log "Got down"
-      _ -> pure unit
+    HandleKey sid ev -> do
+      loc <- H.liftEffect randomLocation
+      case KE.key ev of
+        "ArrowRight" -> modify_ (insertIntoBoard loc <<< handleRightArrow)
+        "ArrowLeft" -> modify_ (insertIntoBoard loc <<< handleLeftArrow)
+        "ArrowUp" -> modify_ (insertIntoBoard loc <<< handleUpArrow)
+        "ArrowDown" -> modify_ (insertIntoBoard loc <<< handleDownArrow)
+        _ -> pure unit
+
+insertIntoBoard :: Location -> State -> State
+insertIntoBoard loc { board: b } =
+  { board:
+      Map.alter
+        ( case _ of
+            Nothing -> Just 2
+            x -> x
+        )
+        loc
+        b
+  }
 
 mirrorColumnwise :: Location -> Location
 mirrorColumnwise loc@{ row: _, column: c } = case c of
@@ -204,6 +228,20 @@ handleLeftArrow { board: b } =
   in
     { board: mirrorBoardColumnwise flippedBoard }
 
+handleUpArrow :: State -> State
+handleUpArrow { board: b } =
+  let
+    { board: rotatedBoard } = handleRightArrow { board: boardRotation b Right }
+  in
+    { board: boardRotation rotatedBoard Left }
+
+handleDownArrow :: State -> State
+handleDownArrow { board: b } =
+  let
+    { board: rotatedBoard } = handleRightArrow { board: boardRotation b Left }
+  in
+    { board: boardRotation rotatedBoard Right }
+
 mirrorBoardColumnwise :: Board2048 -> Board2048
 mirrorBoardColumnwise board =
   foldr
@@ -213,6 +251,49 @@ mirrorBoardColumnwise board =
     )
     Map.empty
     $ Map.keys board
+
+data Rotation
+  = Left
+  | Right
+
+rightRotation :: Location -> Location
+rightRotation = case _ of
+  { row: r@One, column: c@One } -> { row: invertFour r, column: c }
+  { row: r@One, column: c@Two } -> { row: invertFour r, column: c }
+  { row: r@Two, column: c@One } -> { row: invertFour r, column: c }
+  { row: r@Two, column: c@Two } -> { row: invertFour r, column: c }
+  { row: r, column: c } -> { row: c, column: invertFour r }
+
+leftRotation :: Location -> Location
+leftRotation = case _ of
+  { row: r@One, column: c@One } -> { row: r, column: invertFour c }
+  { row: r@One, column: c@Two } -> { row: r, column: invertFour c }
+  { row: r@Two, column: c@One } -> { row: r, column: invertFour c }
+  { row: r@Two, column: c@Two } -> { row: r, column: invertFour c }
+  { row: r, column: c } -> { row: invertFour c, column: r }
+
+invertFour :: Four -> Four
+invertFour = case _ of
+  Zero -> Three
+  One -> Two
+  Two -> One
+  Three -> Zero
+
+boardRotation :: Board2048 -> Rotation -> Board2048
+boardRotation board = case _ of
+  Right -> rotate rightRotation locations
+  Left -> rotate leftRotation locations
+  where
+  locations = Map.keys board
+
+  rotate :: (Location -> Location) -> (Set Location -> Board2048)
+  rotate f =
+    foldr
+      ( \k acc -> case Map.lookup k board of
+          Nothing -> acc
+          Just x -> Map.insert (f k) x acc
+      )
+      Map.empty
 
 handleRightArrow :: State -> State
 handleRightArrow { board: b } =
@@ -257,6 +338,10 @@ handleRightArrow { board: b } =
     in
       zipWith { key: _, value: _ } keys values
 
+data Combined x
+  = Uncombined x
+  | Combined x
+
 -- TODO:
 -- 1. Can we simplify using the Maybe Monad (or catMaybes, suggestion from paluh__)
 -- 2. Property Tests, e.g.
@@ -264,27 +349,39 @@ handleRightArrow { board: b } =
 --    - Number of `Just` should always decrease or stay the same
 foldRight :: Array (Maybe Int) -> Array (Maybe Int)
 foldRight xs =
-  foldl
-    ( \acc x -> case x of
-        Nothing -> x : acc
-        Just x' ->
-          let
-            firstJustIdx :: Maybe Int
-            firstJustIdx = findIndex isJust acc
+  let
+    xs' = map (map E.Left) xs
 
-            firstJust :: Maybe Int
-            firstJust = firstJustIdx >>= index acc >>= identity
-          in
-            case { idx: firstJustIdx, value: firstJust } of
-              { idx: Nothing, value: _ } -> snoc acc (Just x')
-              { idx: _, value: Nothing } -> snoc acc (Just x')
-              { idx: Just idx, value: Just x'' } ->
-                maybe [] identity
-                  ( if x' == x'' then
-                      (Nothing : _) <$> updateAt idx (Just $ x' + x'') acc
-                    else
-                      insertAt idx (Just x') acc
-                  )
-    )
-    ([] :: Array (Maybe Int))
-    (reverse xs)
+    undoEither :: forall a. E.Either a a -> a
+    undoEither (E.Left x) = x
+
+    undoEither (E.Right x) = x
+  in
+    map (map undoEither)
+      ( foldl
+          ( \acc x -> case x of
+              Nothing -> x : acc
+              r@(Just (E.Right x')) -> snoc acc r
+              r@(Just (E.Left x')) ->
+                let
+                  firstJustIdx :: Maybe Int
+                  firstJustIdx = findIndex isJust acc
+
+                  firstJust :: Maybe (E.Either Int Int)
+                  firstJust = firstJustIdx >>= index acc >>= identity
+                in
+                  case { idx: firstJustIdx, value: firstJust } of
+                    { idx: Nothing, value: _ } -> snoc acc r
+                    { idx: _, value: Nothing } -> snoc acc r
+                    { idx: Just idx, value: Just (E.Right _) } -> maybe [] identity $ insertAt idx r acc
+                    { idx: Just idx, value: Just (E.Left x'') } ->
+                      maybe [] identity
+                        ( if x' == x'' then
+                            (Nothing : _) <$> updateAt idx (Just <<< E.Right $ x' + x'') acc
+                          else
+                            insertAt idx r acc
+                        )
+          )
+          ([] :: Array (Maybe (E.Either Int Int)))
+          (reverse xs')
+      )
