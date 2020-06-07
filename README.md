@@ -22,6 +22,7 @@ Purescript/Halogen v5 -- 2048
 - [ ] Add ability to save current game and high score via cookies or localstorage?
 - [ ] Add fork on GitHub banner
 - [ ] Add developed on Twitch banner
+- [ ] Deployment
 
 ### Ideas
 
