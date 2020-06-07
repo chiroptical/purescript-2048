@@ -1,13 +1,16 @@
 module Component.Board where
 
 import Prelude
+import Test.QuickCheck.Arbitrary
+import CSS (black, border, px, solid) as CSS
 import Component.Tile as Tile
 import Control.Monad.State.Class (modify_)
 import Data.Array ((:), reverse, findIndex, index, snoc, updateAt, insertAt, zipWith)
+import Data.Array.NonEmpty as NE
 import Data.Const (Const)
+import Data.Either as E
 import Data.Enum (class Enum, toEnum, fromEnum, class BoundedEnum)
 import Data.Foldable (foldl, foldr)
-import Data.Either as E
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Bounded (genericTop, genericBottom)
 import Data.Generic.Rep.Enum (genericCardinality, genericFromEnum, genericPred, genericSucc, genericToEnum)
@@ -15,22 +18,21 @@ import Data.Generic.Rep.Show (genericShow)
 import Data.Map (Map)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), maybe, isJust)
-import Data.Set (Set)
 import Data.Symbol (SProxy(..))
 import Effect (Effect)
 import Effect.Aff (Aff)
 import Halogen as H
 import Halogen.HTML as HH
+import Halogen.HTML.CSS (style) as CSS
 import Halogen.Query.EventSource as ES
 import Random.PseudoRandom (randomREff)
+import Test.QuickCheck.Gen (oneOf)
 import Web.HTML (window) as Web
 import Web.HTML.HTMLDocument as HTMLDocument
 import Web.HTML.Window (document) as Web
 import Web.UIEvent.KeyboardEvent (KeyboardEvent)
 import Web.UIEvent.KeyboardEvent as KE
 import Web.UIEvent.KeyboardEvent.EventTypes as KET
-import CSS as CSS
-import Halogen.HTML.CSS as CSS
 
 type State
   = { board :: Board2048
@@ -58,6 +60,12 @@ data Four
   | One
   | Two
   | Three
+
+instance arbFour :: Arbitrary Four where
+  arbitrary = oneOf (map pure (NE.toNonEmpty nonEmptyArr))
+    where
+    nonEmptyArr :: NE.NonEmptyArray Four
+    nonEmptyArr = foldr NE.insert (NE.singleton Zero) [ One, Two, Three ]
 
 fourWrappingSucc :: Four -> Four
 fourWrappingSucc = case _ of
@@ -183,7 +191,6 @@ component =
             ]
         ]
 
-  -- TODO: Handle ArrowUp/ArrowDown using rotations and handleRightArrow/handleLeftArrow
   handleAction :: Action -> H.HalogenM State Action ChildSlots Unit Aff Unit
   handleAction = case _ of
     Init -> do
@@ -214,86 +221,52 @@ insertIntoBoard loc { board: b } =
         b
   }
 
-mirrorColumnwise :: Location -> Location
-mirrorColumnwise loc@{ row: _, column: c } = case c of
+verticalMirror :: Location -> Location
+verticalMirror loc@{ row: _, column: c } = case c of
   Zero -> loc { column = Three }
   One -> loc { column = Two }
   Two -> loc { column = One }
   Three -> loc { column = Zero }
 
+transpose :: Location -> Location
+transpose { row, column } = { row: column, column: row }
+
+rotateLeft :: Location -> Location
+rotateLeft = transpose <<< verticalMirror
+
+rotateRight :: Location -> Location
+rotateRight = verticalMirror <<< transpose
+
 handleLeftArrow :: State -> State
 handleLeftArrow { board: b } =
   let
-    { board: flippedBoard } = handleRightArrow { board: mirrorBoardColumnwise b }
+    { board: flippedBoard } = handleRightArrow { board: modifyBoard verticalMirror b }
   in
-    { board: mirrorBoardColumnwise flippedBoard }
+    { board: modifyBoard verticalMirror flippedBoard }
 
 handleUpArrow :: State -> State
 handleUpArrow { board: b } =
   let
-    { board: rotatedBoard } = handleRightArrow { board: boardRotation b Right }
+    { board: rotatedBoard } = handleRightArrow { board: modifyBoard rotateRight b }
   in
-    { board: boardRotation rotatedBoard Left }
+    { board: modifyBoard rotateLeft rotatedBoard }
 
 handleDownArrow :: State -> State
 handleDownArrow { board: b } =
   let
-    { board: rotatedBoard } = handleRightArrow { board: boardRotation b Left }
+    { board: rotatedBoard } = handleRightArrow { board: modifyBoard rotateLeft b }
   in
-    { board: boardRotation rotatedBoard Right }
+    { board: modifyBoard rotateRight rotatedBoard }
 
-mirrorBoardColumnwise :: Board2048 -> Board2048
-mirrorBoardColumnwise board =
+modifyBoard :: (Location -> Location) -> Board2048 -> Board2048
+modifyBoard modify board =
   foldr
     ( \k acc -> case Map.lookup k board of
         Nothing -> acc
-        Just x -> Map.insert (mirrorColumnwise k) x acc
+        Just x -> Map.insert (modify k) x acc
     )
     Map.empty
     $ Map.keys board
-
-data Rotation
-  = Left
-  | Right
-
-rightRotation :: Location -> Location
-rightRotation = case _ of
-  { row: r@One, column: c@One } -> { row: invertFour r, column: c }
-  { row: r@One, column: c@Two } -> { row: invertFour r, column: c }
-  { row: r@Two, column: c@One } -> { row: invertFour r, column: c }
-  { row: r@Two, column: c@Two } -> { row: invertFour r, column: c }
-  { row: r, column: c } -> { row: c, column: invertFour r }
-
-leftRotation :: Location -> Location
-leftRotation = case _ of
-  { row: r@One, column: c@One } -> { row: r, column: invertFour c }
-  { row: r@One, column: c@Two } -> { row: r, column: invertFour c }
-  { row: r@Two, column: c@One } -> { row: r, column: invertFour c }
-  { row: r@Two, column: c@Two } -> { row: r, column: invertFour c }
-  { row: r, column: c } -> { row: invertFour c, column: r }
-
-invertFour :: Four -> Four
-invertFour = case _ of
-  Zero -> Three
-  One -> Two
-  Two -> One
-  Three -> Zero
-
-boardRotation :: Board2048 -> Rotation -> Board2048
-boardRotation board = case _ of
-  Right -> rotate rightRotation locations
-  Left -> rotate leftRotation locations
-  where
-  locations = Map.keys board
-
-  rotate :: (Location -> Location) -> (Set Location -> Board2048)
-  rotate f =
-    foldr
-      ( \k acc -> case Map.lookup k board of
-          Nothing -> acc
-          Just x -> Map.insert (f k) x acc
-      )
-      Map.empty
 
 handleRightArrow :: State -> State
 handleRightArrow { board: b } =

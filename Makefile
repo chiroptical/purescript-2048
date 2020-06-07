@@ -9,3 +9,6 @@ serve:
 
 format:
 	find src/ test/ -name "*.purs" -exec purty format {} --write \;
+
+test:
+	spago test

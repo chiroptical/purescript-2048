@@ -18,14 +18,16 @@ add that package name to `spago.dhall`
 
 ### TODO
 
-1. Initial board state is more complicated than two randomly placed 2's
-2. Build a 2048 type instead of using `Int`
-3. Unit testing, first candidate is the rotation functions
-4. Property testing
-5. Explore lenses in Purescript
-6. Refactor `foldRight` into a more readable state
-7. UI Improvements w/ CSS transitions
-8. Reset game buttons
-9. Win game notification
-10. Current Score
-11. Possibly Best Score (needs cookies)
+- [ ] Make initial board state more complicated than two randomly placed 2's
+- [ ] Use a 2048 type instead of using `Int`
+- [ ] Explore lenses in Purescript
+- [ ] Refactor `foldRight` into a more readable state
+- [ ] UI improvements w/ CSS transitions
+- [ ] Reset game button and keystroke
+- [ ] Win game notification
+- [ ] Current score
+- [ ] Add continuous integration with Github actions?
+- [ ] Add unit/property tests for pure code
+- [ ] Add unit/property tests for the DOM
+- [ ] Refactor data types from Board/Component.purs
+- [ ] Add ability to save current game and high score via cookies or localstorage?
