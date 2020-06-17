@@ -1,16 +1,17 @@
 module Component.Board where
 
+import Data.Array
 import Prelude
 import Test.QuickCheck.Arbitrary
 import CSS (black, border, px, solid) as CSS
 import Component.Tile as Tile
 import Control.Monad.State.Class (modify_)
-import Data.Array ((:), reverse, findIndex, index, snoc, updateAt, insertAt, zipWith)
 import Data.Array.NonEmpty as NE
 import Data.Const (Const)
 import Data.Either as E
 import Data.Enum (class Enum, toEnum, fromEnum, class BoundedEnum)
-import Data.Foldable (foldl, foldr)
+import Data.Foldable (foldl, foldr, sum)
+import Data.Function ((#))
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Bounded (genericTop, genericBottom)
 import Data.Generic.Rep.Enum (genericCardinality, genericFromEnum, genericPred, genericSucc, genericToEnum)
@@ -44,9 +45,6 @@ type Board2048
 type Location
   = { row :: Four, column :: Four }
 
--- TODO:
--- 1. This could be simplified using lenses?
--- 2. Should occasionally give 4, waiting on 2048 Type
 initialLocations :: Effect Input
 initialLocations = do
   loc@{ fst: one, snd: two@{ row: r, column: c } } <- { fst: _, snd: _ } <$> randomLocation <*> randomLocation
@@ -307,54 +305,29 @@ handleRightArrow { board: b } =
         , { row: four, column: Three }
         ]
 
-      values = foldRight $ flip Map.lookup b <$> keys
+      values = foldRowRight $ flip Map.lookup b <$> keys
     in
       zipWith { key: _, value: _ } keys values
 
-data Combined x
-  = Uncombined x
-  | Combined x
+fillNothingFromLeft :: forall a. Int -> Array (Maybe a) -> Array (Maybe a)
+fillNothingFromLeft n xs = replicate (n - length xs) Nothing <> xs
 
--- TODO:
--- 1. Can we simplify using the Maybe Monad (or catMaybes, suggestion from paluh__)
--- 2. Property Tests, e.g.
---    - Sum of `Just` elements should never change
---    - Number of `Just` should always decrease or stay the same
-foldRight :: Array (Maybe Int) -> Array (Maybe Int)
-foldRight xs =
-  let
-    xs' = map (map E.Left) xs
+chunksOf :: Int -> Array Int -> Array (Array Int)
+chunksOf _ [] = []
 
-    undoEither :: forall a. E.Either a a -> a
-    undoEither (E.Left x) = x
+chunksOf n xs = take n xs : chunksOf n (drop n xs)
 
-    undoEither (E.Right x) = x
-  in
-    map (map undoEither)
-      ( foldl
-          ( \acc x -> case x of
-              Nothing -> x : acc
-              r@(Just (E.Right x')) -> snoc acc r
-              r@(Just (E.Left x')) ->
-                let
-                  firstJustIdx :: Maybe Int
-                  firstJustIdx = findIndex isJust acc
+foldTogether :: Array Int -> Array Int
+foldTogether xs = group xs >>= (NE.toArray >>> reverse >>> chunksOf 2 >>> map sum >>> reverse)
 
-                  firstJust :: Maybe (E.Either Int Int)
-                  firstJust = firstJustIdx >>= index acc >>= identity
-                in
-                  case { idx: firstJustIdx, value: firstJust } of
-                    { idx: Nothing, value: _ } -> snoc acc r
-                    { idx: _, value: Nothing } -> snoc acc r
-                    { idx: Just idx, value: Just (E.Right _) } -> maybe [] identity $ insertAt idx r acc
-                    { idx: Just idx, value: Just (E.Left x'') } ->
-                      maybe [] identity
-                        ( if x' == x'' then
-                            (Nothing : _) <$> updateAt idx (Just <<< E.Right $ x' + x'') acc
-                          else
-                            insertAt idx r acc
-                        )
-          )
-          ([] :: Array (Maybe (E.Either Int Int)))
-          (reverse xs')
-      )
+foldRowRight :: Array (Maybe Int) -> Array (Maybe Int)
+foldRowRight row =
+  row
+    # catMaybes
+    # case _ of
+        [] -> fillNothingFromLeft 4 []
+        xs ->
+          xs
+            # foldTogether
+            # map Just
+            # fillNothingFromLeft 4

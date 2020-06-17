@@ -9,31 +9,36 @@ import Test.Spec.Assertions (shouldEqual)
 import Test.Spec.Runner (runSpec)
 import Test.Spec.Reporter.Console (consoleReporter)
 import Test.QuickCheck (quickCheck)
-import Data.Maybe (Maybe)
+import Data.Maybe (Maybe(..))
 import Data.Array (catMaybes, length)
 import Test.QuickCheck.Gen (Gen, arrayOf)
 import Test.QuickCheck.Arbitrary (arbitrary)
-import Component.Board (Four(..), verticalMirror, transpose, rotateRight, rotateLeft, foldRight)
+import Component.Board (Four(..), verticalMirror, transpose, rotateRight, rotateLeft, foldRowRight)
 import Data.Foldable (sum)
 
 main :: Effect Unit
 main =
   launchAff_
     $ runSpec [ consoleReporter ] do
-        describe "Board Rotations" do
+        describe "Rotation Primitives" do
           it "Should mirror column Zero to Three" do
             verticalMirror { row: Zero, column: Zero } `shouldEqual` { row: Zero, column: Three }
           it "Should mirror column One to Two" do
             verticalMirror { row: Zero, column: One } `shouldEqual` { row: Zero, column: Two }
+          it "Should mirror column Two to One" do
+            verticalMirror { row: Zero, column: Two } `shouldEqual` { row: Zero, column: One }
+          it "Should mirror column Three to Zero" do
+            verticalMirror { row: Zero, column: Three } `shouldEqual` { row: Zero, column: Zero }
           it "Should modify the row" do
             liftEffect
-              $ quickCheck \r -> verticalMirror { row: r, column: Zero } /= { row: r, column: Zero }
+              $ quickCheck \r -> verticalMirror { row: r, column: r } /= { row: r, column: r }
           it "Should transpose row and column" do
             liftEffect
               $ quickCheck \r c -> transpose { row: r, column: c } == { row: c, column: r }
           it "Should transpose twice and return itself" do
             liftEffect
               $ quickCheck \r c -> (transpose <<< transpose) { row: r, column: c } == { row: r, column: c }
+        describe "Rotations" do
           it "Should rotate right from Zero,Zero to Zero,Three" do
             rotateRight { row: Zero, column: Zero } `shouldEqual` { row: Zero, column: Three }
           it "Should rotate right from One,One to One,Two" do
@@ -58,18 +63,21 @@ main =
           it "Should rotate right then left and return identity" do
             liftEffect
               $ quickCheck \r c -> (rotateRight <<< rotateLeft) { row: r, column: c } == { row: r, column: c }
-        describe "Folding Function" do
-          -- TODO: Write some more specific unit tests for issues
+        describe "2048 foldRowRight Function" do
+          it "Should produce the correct fold" do
+            foldRowRight [ Just 4, Just 2, Just 2, Nothing ] `shouldEqual` [ Nothing, Nothing, Just 4, Just 4 ]
+          it "Should produce the correct fold" do
+            foldRowRight [ Nothing, Just 4, Just 4, Just 4 ] `shouldEqual` [ Nothing, Nothing, Just 4, Just 8 ]
           it "Should sum to the same number" do
             let
               sumJusts = sum <<< catMaybes
             liftEffect
-              $ quickCheck \r -> sumJusts (foldRight r) == sumJusts r
+              $ quickCheck \r -> sumJusts (foldRowRight r) == sumJusts r
           it "Should count Justs and stay same or decrease" do
             let
               countJusts = length <<< catMaybes
             liftEffect
-              $ quickCheck \r -> countJusts (foldRight r) <= countJusts r
+              $ quickCheck \r -> countJusts (foldRowRight r) <= countJusts r
 
 row :: Gen (Array (Maybe Int))
 row = arrayOf arbitrary
