@@ -313,9 +313,9 @@ fillNothingFromLeft :: forall a. Int -> Array (Maybe a) -> Array (Maybe a)
 fillNothingFromLeft n xs = replicate (n - length xs) Nothing <> xs
 
 chunksOf :: Int -> Array Int -> Array (Array Int)
-chunksOf _ [] = []
-
-chunksOf n xs = take n xs : chunksOf n (drop n xs)
+chunksOf n = case _ of
+  [] -> []
+  xs -> take n xs : chunksOf n (drop n xs)
 
 foldTogether :: Array Int -> Array Int
 foldTogether xs = group xs >>= (NE.toArray >>> reverse >>> chunksOf 2 >>> map sum >>> reverse)
