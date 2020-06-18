@@ -123,7 +123,7 @@ let upstream =
 
 let overrides =
       { metadata = 
-        upstream.metadata // { version = "v0.13.4" }
+        upstream.metadata // { version = "v0.13.8" }
       }
 
 let additions =
