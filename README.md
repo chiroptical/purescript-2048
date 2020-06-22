@@ -1,32 +1,31 @@
 Purescript/Halogen v5 -- 2048
 ---
 
-- Build/Bundle/Watch: `spago bundle-app -w -m Main`
-- Serve: `parcel serve assets/index.html -o index--parcelified.html`
+## Build
 
+- Requires: `npm`, `purescript`, and `spago` OR `nix`
+  - Build and serve with locally installed tools
 
-### TODO
+  ```
+  npm install
+  spago bundle-app --main Main --to assets/index.js
+  ./node_modules/.bin/parcel serve assets/index.html
+  ```
 
-- [ ] Make initial board state more complicated than two randomly placed 2's
-- [ ] Use a 2048 type instead of using `Int`
-- [ ] Explore lenses in Purescript
-- [ ] Refactor `foldRight` into a more readable state
-- [ ] UI improvements w/ CSS transitions
-- [ ] Reset game button and keystroke
-- [ ] Win game notification
-- [ ] Current score
-- [ ] Add continuous integration with Github actions?
-- [ ] Add unit/property tests for pure code
-- [ ] Add unit/property tests for the DOM
-- [ ] Refactor data types from Board/Component.purs
-- [ ] Add ability to save current game and high score via cookies or localstorage?
-- [ ] Add fork on GitHub banner
-- [ ] Add developed on Twitch banner
-- [ ] Deployment
+  - Build and serve with `nix`
 
-### Ideas
+  ```
+  nix-shell default.nix
+  npm install
+  spago2nix install
+  spago bundle-app --main Main --to assets/index.js
+  ./node_modules/.bin/parcel serve assets/index.html
+  ```
 
-- Add difficulty setting, harder difficulties have more starting positions filled with non-two values
+## Ideas
+
+- Add difficulty setting, harder difficulties have more starting positions
+  filled with non-two values
 
 ## Notes during development
 

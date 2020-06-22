@@ -210,13 +210,13 @@ component =
 insertIntoBoard :: Location -> State -> State
 insertIntoBoard loc { board: b } =
   { board:
-      Map.alter
-        ( case _ of
-            Nothing -> Just 2
-            x -> x
-        )
-        loc
-        b
+    Map.alter
+      ( case _ of
+          Nothing -> Just 2
+          x -> x
+      )
+      loc
+      b
   }
 
 verticalMirror :: Location -> Location
@@ -269,12 +269,12 @@ modifyBoard modify board =
 handleRightArrow :: State -> State
 handleRightArrow { board: b } =
   { board:
-      Map.unions
-        [ mkBoard firstRow
-        , mkBoard secondRow
-        , mkBoard thirdRow
-        , mkBoard fourthRow
-        ]
+    Map.unions
+      [ mkBoard firstRow
+      , mkBoard secondRow
+      , mkBoard thirdRow
+      , mkBoard fourthRow
+      ]
   }
   where
   mkBoard :: Array { key :: Location, value :: Maybe Int } -> Board2048

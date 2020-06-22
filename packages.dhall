@@ -119,20 +119,22 @@ let additions =
 
 
 let upstream =
-      https://github.com/purescript/package-sets/releases/download/psc-0.13.6-20200226/packages.dhall sha256:3a52562e05b31a7b51d12d5b228ccbe567c527781a88e9028ab42374ab55c0f1
+      https://github.com/purescript/package-sets/releases/download/psc-0.13.8-20200615/packages.dhall sha256:5d0cfad9408c84db0a3fdcea2d708f9ed8f64297e164dc57a7cf6328706df93a
 
-let overrides = {=}
+let overrides =
+      { metadata = 
+        upstream.metadata // { version = "v0.13.8" }
+      }
 
 let additions =
-  { pseudo-random =
-    { dependencies =
-      [ "lcg"
-      ]
-    , repo =
-      "https://github.com/opyapeus/purescript-pseudo-random"
-    , version = 
-      "v0.2.2"
-    }
-  }
+      { pseudo-random =
+          { dependencies =
+              [ "lcg" ]
+          , repo =
+              "https://github.com/opyapeus/purescript-pseudo-random"
+          , version =
+              "v0.2.2"
+          }
+      }
 
 in  upstream // overrides // additions
