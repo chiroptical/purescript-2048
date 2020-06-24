@@ -1,18 +1,19 @@
 module Component.Board where
 
-import Data.Four (Four(..))
+import Data.Four (Four(..), fours)
 import Data.Array
 import Prelude
 import CSS (black, border, px, solid) as CSS
 import Component.Tile as Tile
-import Control.Monad.State.Class (modify_)
+import Control.Monad.State.Class (modify_, get, put)
 import Data.Array.NonEmpty as NE
 import Data.Const (Const)
 import Data.Foldable (foldr, sum)
 import Data.Map (Map)
 import Data.Map as Map
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Symbol (SProxy(..))
+import Effect (Effect)
 import Effect.Aff (Aff)
 import Halogen as H
 import Halogen.HTML as HH
@@ -24,8 +25,9 @@ import Web.HTML.Window (document) as Web
 import Web.UIEvent.KeyboardEvent (KeyboardEvent)
 import Web.UIEvent.KeyboardEvent as KE
 import Web.UIEvent.KeyboardEvent.EventTypes as KET
-import Data.Location (Location, randomLocation)
+import Data.Location (Location, randomLocation, locations)
 import Data.Tuple (Tuple(..))
+import Test.QuickCheck.Gen (randomSample', shuffle)
 
 type State
   = { board :: Map Location Int
@@ -118,13 +120,35 @@ component =
           (HTMLDocument.toEventTarget document)
           (map (HandleKey sid) <<< KE.fromEvent)
     HandleKey sid ev -> do
-      loc <- H.liftEffect randomLocation
       case KE.key ev of
-        "ArrowRight" -> modify_ (insertIntoBoard loc <<< handleRightArrow)
-        "ArrowLeft" -> modify_ (insertIntoBoard loc <<< handleLeftArrow)
-        "ArrowUp" -> modify_ (insertIntoBoard loc <<< handleUpArrow)
-        "ArrowDown" -> modify_ (insertIntoBoard loc <<< handleDownArrow)
+        "ArrowRight" -> handleAndFillEmptySlot handleRightArrow
+        "ArrowLeft" -> handleAndFillEmptySlot handleLeftArrow
+        "ArrowUp" -> handleAndFillEmptySlot handleUpArrow
+        "ArrowDown" -> handleAndFillEmptySlot handleDownArrow
         _ -> pure unit
+
+handleAndFillEmptySlot :: (State -> State) -> H.HalogenM State Action ChildSlots Unit Aff Unit
+handleAndFillEmptySlot handler = do
+  { board: mli } <- handler <$> get
+  emptySlot <- H.liftEffect $ randomEmptySlot mli
+  put $ { board: Map.insert emptySlot 2 mli }
+
+randomEmptySlot :: Map Location Int -> Effect Location
+randomEmptySlot mli = do
+  locs <- concat <$> (randomSample' 1 $ shuffle emptySlots)
+  let
+    empty = { row: Zero, column: Zero }
+  pure $ fromMaybe empty (head locs)
+  where
+  emptySlots :: Array Location
+  emptySlots =
+    foldr
+      ( \key acc -> case Map.lookup key mli of
+          Just _ -> acc
+          Nothing -> key : acc
+      )
+      []
+      locations
 
 insertIntoBoard :: Location -> State -> State
 insertIntoBoard loc { board: b } =
