@@ -28,5 +28,6 @@ initialLocations = do
     empty = Tuple { row: Zero, column: Zero } { row: One, column: One }
   pure $ fromMaybe empty (head locs)
 
+
 randomLocation :: Effect Location
 randomLocation = { row: _, column: _ } <$> randomFour <*> randomFour
