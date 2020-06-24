@@ -1,116 +1,35 @@
 module Component.Board where
 
+import Data.Four (Four(..))
 import Data.Array
 import Prelude
-import Test.QuickCheck.Arbitrary
 import CSS (black, border, px, solid) as CSS
 import Component.Tile as Tile
 import Control.Monad.State.Class (modify_)
 import Data.Array.NonEmpty as NE
 import Data.Const (Const)
-import Data.Either as E
-import Data.Enum (class Enum, toEnum, fromEnum, class BoundedEnum)
-import Data.Foldable (foldl, foldr, sum)
-import Data.Function ((#))
-import Data.Generic.Rep (class Generic)
-import Data.Generic.Rep.Bounded (genericTop, genericBottom)
-import Data.Generic.Rep.Enum (genericCardinality, genericFromEnum, genericPred, genericSucc, genericToEnum)
-import Data.Generic.Rep.Show (genericShow)
+import Data.Foldable (foldr, sum)
 import Data.Map (Map)
 import Data.Map as Map
-import Data.Maybe (Maybe(..), maybe, isJust)
+import Data.Maybe (Maybe(..))
 import Data.Symbol (SProxy(..))
-import Effect (Effect)
 import Effect.Aff (Aff)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.CSS (style) as CSS
 import Halogen.Query.EventSource as ES
-import Random.PseudoRandom (randomREff)
-import Test.QuickCheck.Gen (oneOf)
 import Web.HTML (window) as Web
 import Web.HTML.HTMLDocument as HTMLDocument
 import Web.HTML.Window (document) as Web
 import Web.UIEvent.KeyboardEvent (KeyboardEvent)
 import Web.UIEvent.KeyboardEvent as KE
 import Web.UIEvent.KeyboardEvent.EventTypes as KET
+import Data.Location (Location, randomLocation)
+import Data.Tuple (Tuple(..))
 
 type State
-  = { board :: Board2048
+  = { board :: Map Location Int
     }
-
-type Board2048
-  = Map Location Int
-
-type Location
-  = { row :: Four, column :: Four }
-
-initialLocations :: Effect Input
-initialLocations = do
-  loc@{ fst: one, snd: two@{ row: r, column: c } } <- { fst: _, snd: _ } <$> randomLocation <*> randomLocation
-  if one == two then
-    pure loc { snd = { row: fourWrappingSucc r, column: fourWrappingSucc c } }
-  else
-    pure loc
-
-data Four
-  = Zero
-  | One
-  | Two
-  | Three
-
-instance arbFour :: Arbitrary Four where
-  arbitrary = oneOf (map pure (NE.toNonEmpty nonEmptyArr))
-    where
-    nonEmptyArr :: NE.NonEmptyArray Four
-    nonEmptyArr = foldr NE.insert (NE.singleton Zero) [ One, Two, Three ]
-
-fourWrappingSucc :: Four -> Four
-fourWrappingSucc = case _ of
-  Zero -> One
-  One -> Two
-  Two -> Three
-  Three -> Zero
-
-fourWrappingPred :: Four -> Four
-fourWrappingPred = case _ of
-  Zero -> Three
-  One -> Zero
-  Two -> One
-  Three -> Two
-
-type Input
-  = { fst :: Location, snd :: Location }
-
-derive instance genericFour :: Generic Four _
-
-derive instance eqFour :: Eq Four
-
-derive instance ordFour :: Ord Four
-
-instance showFour :: Show Four where
-  show = genericShow
-
-instance enumFour :: Enum Four where
-  succ = genericSucc
-  pred = genericPred
-
-instance boundedFour :: Bounded Four where
-  top = genericTop
-  bottom = genericBottom
-
-instance boundedEnumFour :: BoundedEnum Four where
-  cardinality = genericCardinality
-  toEnum = genericToEnum
-  fromEnum = genericFromEnum
-
-randomFour :: Effect Four
-randomFour = do
-  int <- randomREff (fromEnum (bottom :: Four)) (fromEnum (top :: Four))
-  pure $ maybe Zero identity $ toEnum int
-
-randomLocation :: Effect Location
-randomLocation = { row: _, column: _ } <$> randomFour <*> randomFour
 
 data Action
   = Init
@@ -141,7 +60,7 @@ mkTileSlot ::
     m
 mkTileSlot state location = HH.slot _tile location Tile.component (Map.lookup location state.board) (\_ -> Nothing)
 
-component :: forall q. H.Component HH.HTML q Input Unit Aff
+component :: forall q. H.Component HH.HTML q (Tuple Location Location) Unit Aff
 component =
   H.mkComponent
     { initialState
@@ -149,8 +68,8 @@ component =
     , eval: H.mkEval (H.defaultEval { handleAction = handleAction, initialize = Just Init })
     }
   where
-  initialState :: Input -> State
-  initialState { fst: loc0, snd: loc1 } = { board: Map.insert loc1 2 (Map.singleton loc0 2) }
+  initialState :: Tuple Location Location -> State
+  initialState (Tuple loc0 loc1) = { board: Map.insert loc1 2 (Map.singleton loc0 2) }
 
   render :: State -> H.ComponentHTML Action ChildSlots Aff
   render state =
@@ -256,7 +175,7 @@ handleDownArrow { board: b } =
   in
     { board: modifyBoard rotateRight rotatedBoard }
 
-modifyBoard :: (Location -> Location) -> Board2048 -> Board2048
+modifyBoard :: (Location -> Location) -> Map Location Int -> Map Location Int
 modifyBoard modify board =
   foldr
     ( \k acc -> case Map.lookup k board of
@@ -277,7 +196,7 @@ handleRightArrow { board: b } =
       ]
   }
   where
-  mkBoard :: Array { key :: Location, value :: Maybe Int } -> Board2048
+  mkBoard :: Array { key :: Location, value :: Maybe Int } -> Map Location Int
   mkBoard row =
     foldr
       ( \{ key: location, value: val } b' -> case val of

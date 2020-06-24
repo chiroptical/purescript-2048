@@ -13,7 +13,8 @@ import Data.Maybe (Maybe(..))
 import Data.Array (catMaybes, length)
 import Test.QuickCheck.Gen (Gen, arrayOf)
 import Test.QuickCheck.Arbitrary (arbitrary)
-import Component.Board (Four(..), verticalMirror, transpose, rotateRight, rotateLeft, foldRowRight)
+import Component.Board (verticalMirror, transpose, rotateRight, rotateLeft, foldRowRight)
+import Data.Four (Four(..))
 import Data.Foldable (sum)
 
 main :: Effect Unit
