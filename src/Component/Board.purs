@@ -25,7 +25,7 @@ import Web.HTML.Window (document) as Web
 import Web.UIEvent.KeyboardEvent (KeyboardEvent)
 import Web.UIEvent.KeyboardEvent as KE
 import Web.UIEvent.KeyboardEvent.EventTypes as KET
-import Data.Location (Location, randomLocation, locations)
+import Data.Location (Location, randomLocation, locations, initialLocations)
 import Data.Tuple (Tuple(..))
 import Test.QuickCheck.Gen (randomSample', shuffle)
 
@@ -62,6 +62,9 @@ mkTileSlot ::
     m
 mkTileSlot state location = HH.slot _tile location Tile.component (Map.lookup location state.board) (\_ -> Nothing)
 
+mkState :: Tuple Location Location -> State
+mkState (Tuple loc0 loc1) = { board: Map.insert loc1 2 (Map.singleton loc0 2) }
+
 component :: forall q. H.Component HH.HTML q (Tuple Location Location) Unit Aff
 component =
   H.mkComponent
@@ -71,7 +74,7 @@ component =
     }
   where
   initialState :: Tuple Location Location -> State
-  initialState (Tuple loc0 loc1) = { board: Map.insert loc1 2 (Map.singleton loc0 2) }
+  initialState = mkState
 
   render :: State -> H.ComponentHTML Action ChildSlots Aff
   render state =
@@ -122,10 +125,18 @@ component =
     HandleKey sid ev -> do
       case KE.key ev of
         "ArrowRight" -> handleAndFillEmptySlot handleRightArrow
+        "l" -> handleAndFillEmptySlot handleRightArrow
         "ArrowLeft" -> handleAndFillEmptySlot handleLeftArrow
+        "h" -> handleAndFillEmptySlot handleLeftArrow
         "ArrowUp" -> handleAndFillEmptySlot handleUpArrow
+        "k" -> handleAndFillEmptySlot handleUpArrow
         "ArrowDown" -> handleAndFillEmptySlot handleDownArrow
+        "j" -> handleAndFillEmptySlot handleDownArrow
+        "n" -> resetState
         _ -> pure unit
+
+resetState :: H.HalogenM State Action ChildSlots Unit Aff Unit
+resetState = (H.liftEffect $ mkState <$> initialLocations) >>= put
 
 handleAndFillEmptySlot :: (State -> State) -> H.HalogenM State Action ChildSlots Unit Aff Unit
 handleAndFillEmptySlot handler = do
@@ -149,18 +160,6 @@ randomEmptySlot mli = do
       )
       []
       locations
-
-insertIntoBoard :: Location -> State -> State
-insertIntoBoard loc { board: b } =
-  { board:
-    Map.alter
-      ( case _ of
-          Nothing -> Just 2
-          x -> x
-      )
-      loc
-      b
-  }
 
 verticalMirror :: Location -> Location
 verticalMirror loc@{ row: _, column: c } = case c of
