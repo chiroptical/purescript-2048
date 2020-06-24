@@ -1,7 +1,7 @@
 module Data.Four where
 
 import Prelude
-import Data.Enum (class Enum, toEnum, fromEnum, class BoundedEnum)
+import Data.Enum (class Enum, toEnum, fromEnum, class BoundedEnum, enumFromTo)
 import Test.QuickCheck.Arbitrary (class Arbitrary)
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Bounded (genericTop, genericBottom)
@@ -66,3 +66,6 @@ randomFour :: Effect Four
 randomFour = do
   int <- randomREff (fromEnum (bottom :: Four)) (fromEnum (top :: Four))
   pure $ maybe Zero identity $ toEnum int
+
+fours :: Array Four
+fours = enumFromTo Zero Three
