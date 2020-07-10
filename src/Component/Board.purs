@@ -1,11 +1,11 @@
 module Component.Board where
 
-import Data.Four (Four(..), fours)
+import Data.Four (Four(..))
 import Data.Array
 import Prelude
 import CSS (black, border, px, solid) as CSS
 import Component.Tile as Tile
-import Control.Monad.State.Class (modify_, get, put)
+import Control.Monad.State.Class (get, put)
 import Data.Array.NonEmpty as NE
 import Data.Const (Const)
 import Data.Foldable (foldr, sum)
@@ -17,6 +17,7 @@ import Effect (Effect)
 import Effect.Aff (Aff)
 import Halogen as H
 import Halogen.HTML as HH
+import Halogen.HTML.Events as HE
 import Halogen.HTML.CSS (style) as CSS
 import Halogen.Query.EventSource as ES
 import Web.HTML (window) as Web
@@ -25,7 +26,7 @@ import Web.HTML.Window (document) as Web
 import Web.UIEvent.KeyboardEvent (KeyboardEvent)
 import Web.UIEvent.KeyboardEvent as KE
 import Web.UIEvent.KeyboardEvent.EventTypes as KET
-import Data.Location (Location, randomLocation, locations, initialLocations)
+import Data.Location (Location, locations, initialLocations)
 import Data.Tuple (Tuple(..))
 import Test.QuickCheck.Gen (randomSample', shuffle)
 
@@ -36,6 +37,7 @@ type State
 data Action
   = Init
   | HandleKey H.SubscriptionId KeyboardEvent
+  | ResetGame
 
 type NoQuery
   = Const Void
@@ -111,6 +113,9 @@ component =
                 , mkTileSlot' { row: Three, column: Three }
                 ]
             ]
+        , HH.button 
+            [ HE.onClick \_ -> Just ResetGame ]
+            [ HH.text "Reset Game" ]
         ]
 
   handleAction :: Action -> H.HalogenM State Action ChildSlots Unit Aff Unit
@@ -134,6 +139,7 @@ component =
         "j" -> handleAndFillEmptySlot handleDownArrow
         "n" -> resetState
         _ -> pure unit
+    ResetGame -> resetState
 
 resetState :: H.HalogenM State Action ChildSlots Unit Aff Unit
 resetState = (H.liftEffect $ mkState <$> initialLocations) >>= put
