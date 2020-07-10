@@ -32,6 +32,7 @@ import Test.QuickCheck.Gen (randomSample', shuffle)
 
 type State
   = { board :: Map Location Int
+    , score :: Int
     }
 
 data Action
@@ -49,6 +50,15 @@ type ChildSlots
   = ( tile :: ChildSlot
     )
 
+type IncreaseScore
+  = { increaseScoreBy :: Int, row :: Array Int }
+
+type IncreaseScoreM
+  = { increaseScoreByM :: Int, rowM :: Array (Maybe Int) }
+
+type IncreaseScoreZ
+  = { increaseScoreByZ :: Int, rowZ :: Array { key :: Location, value :: Maybe Int } }
+
 _tile :: SProxy "tile"
 _tile = SProxy
 
@@ -65,7 +75,10 @@ mkTileSlot ::
 mkTileSlot state location = HH.slot _tile location Tile.component (Map.lookup location state.board) (\_ -> Nothing)
 
 mkState :: Tuple Location Location -> State
-mkState (Tuple loc0 loc1) = { board: Map.insert loc1 2 (Map.singleton loc0 2) }
+mkState (Tuple loc0 loc1) =
+  { board: Map.insert loc1 2 (Map.singleton loc0 2)
+  , score: 0
+  }
 
 component :: forall q. H.Component HH.HTML q (Tuple Location Location) Unit Aff
 component =
@@ -84,7 +97,8 @@ component =
       mkTileSlot' = mkTileSlot state
     in
       HH.div_
-        [ HH.table
+        [ HH.text ("Score: " <> show state.score)
+        , HH.table
             [ CSS.style do
                 CSS.border CSS.solid (CSS.px 2.0) CSS.black
             ]
@@ -113,7 +127,7 @@ component =
                 , mkTileSlot' { row: Three, column: Three }
                 ]
             ]
-        , HH.button 
+        , HH.button
             [ HE.onClick \_ -> Just ResetGame ]
             [ HH.text "Reset Game" ]
         ]
@@ -146,9 +160,9 @@ resetState = (H.liftEffect $ mkState <$> initialLocations) >>= put
 
 handleAndFillEmptySlot :: (State -> State) -> H.HalogenM State Action ChildSlots Unit Aff Unit
 handleAndFillEmptySlot handler = do
-  { board: mli } <- handler <$> get
+  { board: mli, score } <- handler <$> get
   emptySlot <- H.liftEffect $ randomEmptySlot mli
-  put $ { board: Map.insert emptySlot 2 mli }
+  put $ { board: Map.insert emptySlot 2 mli, score }
 
 randomEmptySlot :: Map Location Int -> Effect Location
 randomEmptySlot mli = do
@@ -184,25 +198,25 @@ rotateRight :: Location -> Location
 rotateRight = verticalMirror <<< transpose
 
 handleLeftArrow :: State -> State
-handleLeftArrow { board: b } =
+handleLeftArrow { board, score: currScore } =
   let
-    { board: flippedBoard } = handleRightArrow { board: modifyBoard verticalMirror b }
+    { board: flippedBoard, score } = handleRightArrow { board: modifyBoard verticalMirror board, score: currScore }
   in
-    { board: modifyBoard verticalMirror flippedBoard }
+    { board: modifyBoard verticalMirror flippedBoard, score }
 
 handleUpArrow :: State -> State
-handleUpArrow { board: b } =
+handleUpArrow { board, score: currScore } =
   let
-    { board: rotatedBoard } = handleRightArrow { board: modifyBoard rotateRight b }
+    { board: rotatedBoard, score } = handleRightArrow { board: modifyBoard rotateRight board, score: currScore }
   in
-    { board: modifyBoard rotateLeft rotatedBoard }
+    { board: modifyBoard rotateLeft rotatedBoard, score }
 
 handleDownArrow :: State -> State
-handleDownArrow { board: b } =
+handleDownArrow { board, score: currScore } =
   let
-    { board: rotatedBoard } = handleRightArrow { board: modifyBoard rotateLeft b }
+    { board: rotatedBoard, score: newScore } = handleRightArrow { board: modifyBoard rotateLeft board, score: currScore }
   in
-    { board: modifyBoard rotateRight rotatedBoard }
+    { board: modifyBoard rotateRight rotatedBoard, score: newScore }
 
 modifyBoard :: (Location -> Location) -> Map Location Int -> Map Location Int
 modifyBoard modify board =
@@ -215,14 +229,15 @@ modifyBoard modify board =
     $ Map.keys board
 
 handleRightArrow :: State -> State
-handleRightArrow { board: b } =
+handleRightArrow { board, score } =
   { board:
     Map.unions
-      [ mkBoard firstRow
-      , mkBoard secondRow
-      , mkBoard thirdRow
-      , mkBoard fourthRow
+      [ mkBoard zeroth.rowZ
+      , mkBoard first.rowZ
+      , mkBoard second.rowZ
+      , mkBoard third.rowZ
       ]
+  , score: score + zeroth.increaseScoreByZ + first.increaseScoreByZ + second.increaseScoreByZ + third.increaseScoreByZ
   }
   where
   mkBoard :: Array { key :: Location, value :: Maybe Int } -> Map Location Int
@@ -235,15 +250,15 @@ handleRightArrow { board: b } =
       Map.empty
       row
 
-  firstRow = mkRow Zero
+  zeroth = mkRow Zero
 
-  secondRow = mkRow One
+  first = mkRow One
 
-  thirdRow = mkRow Two
+  second = mkRow Two
 
-  fourthRow = mkRow Three
+  third = mkRow Three
 
-  mkRow :: Four -> Array { key :: Location, value :: Maybe Int }
+  mkRow :: Four -> IncreaseScoreZ
   mkRow four =
     let
       keys =
@@ -253,9 +268,11 @@ handleRightArrow { board: b } =
         , { row: four, column: Three }
         ]
 
-      values = foldRowRight $ flip Map.lookup b <$> keys
+      { increaseScoreByM, rowM } = foldRowRight $ flip Map.lookup board <$> keys
     in
-      zipWith { key: _, value: _ } keys values
+      { increaseScoreByZ: increaseScoreByM
+      , rowZ: zipWith { key: _, value: _ } keys rowM
+      }
 
 fillNothingFromLeft :: forall a. Int -> Array (Maybe a) -> Array (Maybe a)
 fillNothingFromLeft n xs = replicate (n - length xs) Nothing <> xs
@@ -265,17 +282,26 @@ chunksOf n = case _ of
   [] -> []
   xs -> take n xs : chunksOf n (drop n xs)
 
-foldTogether :: Array Int -> Array Int
-foldTogether xs = group xs >>= (NE.toArray >>> reverse >>> chunksOf 2 >>> map sum >>> reverse)
+foldTogether :: Array Int -> IncreaseScore
+foldTogether xs =
+  let
+    chunked = group xs >>= (NE.toArray >>> chunksOf 2 >>> reverse)
 
-foldRowRight :: Array (Maybe Int) -> Array (Maybe Int)
+    increaseScoreBy =
+      chunked
+        # filter (length >>> (_ > 1))
+        # concat
+        # sum
+  in
+    { increaseScoreBy, row: map sum chunked }
+
+foldRowRight :: Array (Maybe Int) -> IncreaseScoreM
 foldRowRight row =
   row
     # catMaybes
     # case _ of
-        [] -> fillNothingFromLeft 4 []
+        [] -> { increaseScoreByM: 0, rowM: fillNothingFromLeft 4 [] }
         xs ->
           xs
             # foldTogether
-            # map Just
-            # fillNothingFromLeft 4
+            # \{ increaseScoreBy, row: r } -> { increaseScoreByM: increaseScoreBy, rowM: fillNothingFromLeft 4 (map Just r) }
