@@ -66,19 +66,19 @@ main =
               $ quickCheck \r c -> (rotateRight <<< rotateLeft) { row: r, column: c } == { row: r, column: c }
         describe "2048 foldRowRight Function" do
           it "Should produce the correct fold" do
-            foldRowRight [ Just 4, Just 2, Just 2, Nothing ] `shouldEqual` [ Nothing, Nothing, Just 4, Just 4 ]
+            foldRowRight [ Just 4, Just 2, Just 2, Nothing ] `shouldEqual` { increaseScoreByM: 4, rowM: [ Nothing, Nothing, Just 4, Just 4 ] }
           it "Should produce the correct fold" do
-            foldRowRight [ Nothing, Just 4, Just 4, Just 4 ] `shouldEqual` [ Nothing, Nothing, Just 4, Just 8 ]
+            foldRowRight [ Nothing, Just 4, Just 4, Just 4 ] `shouldEqual` { increaseScoreByM: 8, rowM: [ Nothing, Nothing, Just 4, Just 8 ] }
           it "Should sum to the same number" do
             let
               sumJusts = sum <<< catMaybes
             liftEffect
-              $ quickCheck \r -> sumJusts (foldRowRight r) == sumJusts r
+              $ quickCheck \r -> sumJusts (foldRowRight r).rowM == sumJusts r
           it "Should count Justs and stay same or decrease" do
             let
               countJusts = length <<< catMaybes
             liftEffect
-              $ quickCheck \r -> countJusts (foldRowRight r) <= countJusts r
+              $ quickCheck \r -> countJusts (foldRowRight r).rowM <= countJusts r
 
 row :: Gen (Array (Maybe Int))
 row = arrayOf arbitrary
