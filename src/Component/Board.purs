@@ -1,11 +1,11 @@
 module Component.Board where
 
-import Data.Four (Four(..), fours)
+import Data.Four (Four(..))
 import Data.Array
 import Prelude
 import CSS (black, border, px, solid) as CSS
 import Component.Tile as Tile
-import Control.Monad.State.Class (modify_, get, put)
+import Control.Monad.State.Class (get, put)
 import Data.Array.NonEmpty as NE
 import Data.Const (Const)
 import Data.Foldable (foldr, sum)
@@ -17,6 +17,7 @@ import Effect (Effect)
 import Effect.Aff (Aff)
 import Halogen as H
 import Halogen.HTML as HH
+import Halogen.HTML.Events as HE
 import Halogen.HTML.CSS (style) as CSS
 import Halogen.Query.EventSource as ES
 import Web.HTML (window) as Web
@@ -25,7 +26,7 @@ import Web.HTML.Window (document) as Web
 import Web.UIEvent.KeyboardEvent (KeyboardEvent)
 import Web.UIEvent.KeyboardEvent as KE
 import Web.UIEvent.KeyboardEvent.EventTypes as KET
-import Data.Location (Location, randomLocation, locations)
+import Data.Location (Location, locations, initialLocations)
 import Data.Tuple (Tuple(..))
 import Test.QuickCheck.Gen (randomSample', shuffle)
 
@@ -36,6 +37,7 @@ type State
 data Action
   = Init
   | HandleKey H.SubscriptionId KeyboardEvent
+  | ResetGame
 
 type NoQuery
   = Const Void
@@ -62,6 +64,9 @@ mkTileSlot ::
     m
 mkTileSlot state location = HH.slot _tile location Tile.component (Map.lookup location state.board) (\_ -> Nothing)
 
+mkState :: Tuple Location Location -> State
+mkState (Tuple loc0 loc1) = { board: Map.insert loc1 2 (Map.singleton loc0 2) }
+
 component :: forall q. H.Component HH.HTML q (Tuple Location Location) Unit Aff
 component =
   H.mkComponent
@@ -71,7 +76,7 @@ component =
     }
   where
   initialState :: Tuple Location Location -> State
-  initialState (Tuple loc0 loc1) = { board: Map.insert loc1 2 (Map.singleton loc0 2) }
+  initialState = mkState
 
   render :: State -> H.ComponentHTML Action ChildSlots Aff
   render state =
@@ -108,6 +113,9 @@ component =
                 , mkTileSlot' { row: Three, column: Three }
                 ]
             ]
+        , HH.button 
+            [ HE.onClick \_ -> Just ResetGame ]
+            [ HH.text "Reset Game" ]
         ]
 
   handleAction :: Action -> H.HalogenM State Action ChildSlots Unit Aff Unit
@@ -122,10 +130,19 @@ component =
     HandleKey sid ev -> do
       case KE.key ev of
         "ArrowRight" -> handleAndFillEmptySlot handleRightArrow
+        "l" -> handleAndFillEmptySlot handleRightArrow
         "ArrowLeft" -> handleAndFillEmptySlot handleLeftArrow
+        "h" -> handleAndFillEmptySlot handleLeftArrow
         "ArrowUp" -> handleAndFillEmptySlot handleUpArrow
+        "k" -> handleAndFillEmptySlot handleUpArrow
         "ArrowDown" -> handleAndFillEmptySlot handleDownArrow
+        "j" -> handleAndFillEmptySlot handleDownArrow
+        "n" -> resetState
         _ -> pure unit
+    ResetGame -> resetState
+
+resetState :: H.HalogenM State Action ChildSlots Unit Aff Unit
+resetState = (H.liftEffect $ mkState <$> initialLocations) >>= put
 
 handleAndFillEmptySlot :: (State -> State) -> H.HalogenM State Action ChildSlots Unit Aff Unit
 handleAndFillEmptySlot handler = do
@@ -149,18 +166,6 @@ randomEmptySlot mli = do
       )
       []
       locations
-
-insertIntoBoard :: Location -> State -> State
-insertIntoBoard loc { board: b } =
-  { board:
-    Map.alter
-      ( case _ of
-          Nothing -> Just 2
-          x -> x
-      )
-      loc
-      b
-  }
 
 verticalMirror :: Location -> Location
 verticalMirror loc@{ row: _, column: c } = case c of
