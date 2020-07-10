@@ -20,7 +20,7 @@ clean:
 	rm -rf .cache .spago node_modules .psci_modules output dist
 
 serve:
-	./node_modules/.bin/parcel serve assets/index.html -o index--parcelified.html
+	./node_modules/.bin/parcel serve assets/index.html -o index--parcelified.html -p 2048
 
 format:
 	find src/ test/ -name "*.purs" -exec purty {} --write \;
