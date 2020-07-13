@@ -4,20 +4,16 @@ import Prelude
 
 import Capability.Random (class Random, randomSample)
 import Data.Array (filter, head)
-import Data.Const (Const)
 import Data.Four (Four(..), randomFour, fours)
 import Data.Maybe (fromMaybe)
 import Data.Tuple (Tuple(..))
 import Effect (Effect)
-import Halogen (Slot) as H
 
 type Location
   = { row :: Four, column :: Four }
 
 empty :: Tuple Location Location
 empty = Tuple { row: Zero, column: Zero } { row: One, column: One }
-
-type Slot = H.Slot (Const Void) Unit Location
 
 possibleStartingLocations :: Array (Tuple Location Location)
 possibleStartingLocations =
