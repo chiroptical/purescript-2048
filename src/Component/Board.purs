@@ -1,24 +1,27 @@
 module Component.Board where
 
-import Data.Four (Four(..))
-import Data.Array
 import Prelude
+
+import Data.Array
 import CSS (black, border, px, solid) as CSS
+import Capability.Random (class Random, randomSample)
 import Component.Tile as Tile
 import Control.Monad.State.Class (get, put)
 import Data.Array.NonEmpty as NE
 import Data.Const (Const)
 import Data.Foldable (foldr, sum)
+import Data.Four (Four(..))
+import Data.Location (Location, locations, initialLocations)
 import Data.Map (Map)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Symbol (SProxy(..))
-import Effect (Effect)
-import Effect.Aff (Aff)
+import Data.Tuple (Tuple(..))
+import Effect.Aff.Class (class MonadAff)
 import Halogen as H
 import Halogen.HTML as HH
-import Halogen.HTML.Events as HE
 import Halogen.HTML.CSS (style) as CSS
+import Halogen.HTML.Events as HE
 import Halogen.Query.EventSource as ES
 import Web.HTML (window) as Web
 import Web.HTML.HTMLDocument as HTMLDocument
@@ -26,9 +29,6 @@ import Web.HTML.Window (document) as Web
 import Web.UIEvent.KeyboardEvent (KeyboardEvent)
 import Web.UIEvent.KeyboardEvent as KE
 import Web.UIEvent.KeyboardEvent.EventTypes as KET
-import Data.Location (Location, locations, initialLocations)
-import Data.Tuple (Tuple(..))
-import Test.QuickCheck.Gen (randomSample', shuffle)
 
 type State
   = { board :: Map Location Int
@@ -46,8 +46,7 @@ type ChildSlot
   = H.Slot NoQuery Unit Location
 
 type ChildSlots
-  = ( tile :: ChildSlot
-    )
+  = (tile :: ChildSlot)
 
 _tile :: SProxy "tile"
 _tile = SProxy
@@ -67,7 +66,7 @@ mkTileSlot state location = HH.slot _tile location Tile.component (Map.lookup lo
 mkState :: Tuple Location Location -> State
 mkState (Tuple loc0 loc1) = { board: Map.insert loc1 2 (Map.singleton loc0 2) }
 
-component :: forall q. H.Component HH.HTML q (Tuple Location Location) Unit Aff
+component :: forall m. MonadAff m => Random m => H.Component HH.HTML NoQuery (Tuple Location Location) Unit m
 component =
   H.mkComponent
     { initialState
@@ -78,7 +77,7 @@ component =
   initialState :: Tuple Location Location -> State
   initialState = mkState
 
-  render :: State -> H.ComponentHTML Action ChildSlots Aff
+  render :: State -> H.ComponentHTML Action ChildSlots m
   render state =
     let
       mkTileSlot' = mkTileSlot state
@@ -118,7 +117,7 @@ component =
             [ HH.text "Reset Game" ]
         ]
 
-  handleAction :: Action -> H.HalogenM State Action ChildSlots Unit Aff Unit
+  handleAction :: Action -> H.HalogenM State Action ChildSlots Unit m Unit
   handleAction = case _ of
     Init -> do
       document <- H.liftEffect $ Web.document =<< Web.window
@@ -141,18 +140,18 @@ component =
         _ -> pure unit
     ResetGame -> resetState
 
-resetState :: H.HalogenM State Action ChildSlots Unit Aff Unit
-resetState = (H.liftEffect $ mkState <$> initialLocations) >>= put
+resetState :: forall m. MonadAff m => Random m => H.HalogenM State Action ChildSlots Unit m Unit
+resetState = mkState <$> initialLocations >>= put
 
-handleAndFillEmptySlot :: (State -> State) -> H.HalogenM State Action ChildSlots Unit Aff Unit
+handleAndFillEmptySlot :: forall m. MonadAff m => Random m => (State -> State) -> H.HalogenM State Action ChildSlots Unit m Unit
 handleAndFillEmptySlot handler = do
   { board: mli } <- handler <$> get
-  emptySlot <- H.liftEffect $ randomEmptySlot mli
+  emptySlot <- randomEmptySlot mli
   put $ { board: Map.insert emptySlot 2 mli }
 
-randomEmptySlot :: Map Location Int -> Effect Location
+randomEmptySlot :: forall m. Random m => Map Location Int -> m Location
 randomEmptySlot mli = do
-  locs <- concat <$> (randomSample' 1 $ shuffle emptySlots)
+  locs <- randomSample emptySlots
   let
     empty = { row: Zero, column: Zero }
   pure $ fromMaybe empty (head locs)
