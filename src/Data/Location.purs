@@ -1,7 +1,6 @@
 module Data.Location where
 
 import Prelude
-
 import Capability.Random (class Random, shuffleArray)
 import Data.Array (filter, head)
 import Data.Four (Four(..), randomFour, fours)

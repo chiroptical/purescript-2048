@@ -1,7 +1,6 @@
 module Main where
 
 import Prelude
-
 import Component.Board as Board
 import Data.Location (initialLocations)
 import Effect (Effect)
@@ -15,7 +14,6 @@ main = do
   HA.runHalogenAff do
     locations <- runAppM initialLocations
     body <- HA.awaitBody
-
-    let app = H.hoist runAppM Board.component
-    root <- runUI app locations body
-    pure unit
+    let
+      app = H.hoist runAppM Board.component
+    runUI app locations body

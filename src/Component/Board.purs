@@ -1,7 +1,6 @@
 module Component.Board where
 
 import Prelude
-
 import Data.Array
 import CSS (black, border, px, solid) as CSS
 import Capability.Random (class Random, shuffleArray)
@@ -46,7 +45,7 @@ type ChildSlot
   = H.Slot NoQuery Unit Location
 
 type ChildSlots
-  = (tile :: ChildSlot)
+  = ( tile :: ChildSlot )
 
 _tile :: SProxy "tile"
 _tile = SProxy
@@ -112,7 +111,7 @@ component =
                 , mkTileSlot' { row: Three, column: Three }
                 ]
             ]
-        , HH.button 
+        , HH.button
             [ HE.onClick \_ -> Just ResetGame ]
             [ HH.text "Reset Game" ]
         ]
@@ -216,12 +215,12 @@ modifyBoard modify board =
 handleRightArrow :: State -> State
 handleRightArrow { board: b } =
   { board:
-    Map.unions
-      [ mkBoard firstRow
-      , mkBoard secondRow
-      , mkBoard thirdRow
-      , mkBoard fourthRow
-      ]
+      Map.unions
+        [ mkBoard firstRow
+        , mkBoard secondRow
+        , mkBoard thirdRow
+        , mkBoard fourthRow
+        ]
   }
   where
   mkBoard :: Array { key :: Location, value :: Maybe Int } -> Map Location Int

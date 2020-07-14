@@ -24,11 +24,11 @@ component =
     { initialState: identity
     , render
     , eval:
-      H.mkEval
-        $ H.defaultEval
-            { handleAction = handleAction
-            , receive = Just <<< HandleInput
-            }
+        H.mkEval
+          $ H.defaultEval
+              { handleAction = handleAction
+              , receive = Just <<< HandleInput
+              }
     }
   where
   render :: forall action. State -> H.ComponentHTML action () m
