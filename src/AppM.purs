@@ -22,4 +22,4 @@ derive newtype instance monadEffectAppM :: MonadEffect AppM
 derive newtype instance monadAffAppM :: MonadAff AppM
 
 instance randomAppM :: Random AppM where
-  randomSample xs = liftEffect $ join <$> (randomSample' 1 $ shuffle xs)
+  shuffleArray xs = liftEffect $ join <$> (randomSample' 1 $ shuffle xs)

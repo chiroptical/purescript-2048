@@ -4,7 +4,7 @@ import Prelude
 
 import Data.Array
 import CSS (black, border, px, solid) as CSS
-import Capability.Random (class Random, randomSample)
+import Capability.Random (class Random, shuffleArray)
 import Component.Tile as Tile
 import Control.Monad.State.Class (get, put)
 import Data.Array.NonEmpty as NE
@@ -151,7 +151,7 @@ handleAndFillEmptySlot handler = do
 
 randomEmptySlot :: forall m. Random m => Map Location Int -> m Location
 randomEmptySlot mli = do
-  locs <- randomSample emptySlots
+  locs <- shuffleArray emptySlots
   let
     empty = { row: Zero, column: Zero }
   pure $ fromMaybe empty (head locs)

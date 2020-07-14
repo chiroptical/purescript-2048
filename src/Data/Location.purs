@@ -2,7 +2,7 @@ module Data.Location where
 
 import Prelude
 
-import Capability.Random (class Random, randomSample)
+import Capability.Random (class Random, shuffleArray)
 import Data.Array (filter, head)
 import Data.Four (Four(..), randomFour, fours)
 import Data.Maybe (fromMaybe)
@@ -22,7 +22,7 @@ possibleStartingLocations =
 
 initialLocations :: forall m. Random m => m (Tuple Location Location)
 initialLocations = do
-  locs <- randomSample possibleStartingLocations
+  locs <- shuffleArray possibleStartingLocations
   pure $ fromMaybe empty (head locs)
 
 randomLocation :: Effect Location
