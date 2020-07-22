@@ -1,26 +1,27 @@
 module Data.Location where
 
 import Prelude
-import Data.Array (filter, head, concat)
+import Capability.Random (class Random, shuffleArray)
+import Data.Array (filter, head)
 import Data.Four (Four(..), randomFour, fours)
+import Data.Maybe (fromMaybe)
 import Data.Tuple (Tuple(..))
 import Effect (Effect)
-import Test.QuickCheck.Gen (randomSample', shuffle)
-import Data.Maybe (fromMaybe)
 
 type Location
   = { row :: Four, column :: Four }
+
+empty :: Tuple Location Location
+empty = Tuple { row: Zero, column: Zero } { row: One, column: One }
 
 possibleStartingLocations :: Array (Tuple Location Location)
 possibleStartingLocations =
   Tuple <$> locations <*> locations
     # filter (\(Tuple x y) -> x /= y)
 
-initialLocations :: Effect (Tuple Location Location)
+initialLocations :: forall m. Random m => m (Tuple Location Location)
 initialLocations = do
-  locs <- concat <$> (randomSample' 1 $ shuffle possibleStartingLocations)
-  let
-    empty = Tuple { row: Zero, column: Zero } { row: One, column: One }
+  locs <- shuffleArray possibleStartingLocations
   pure $ fromMaybe empty (head locs)
 
 randomLocation :: Effect Location

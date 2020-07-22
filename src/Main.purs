@@ -4,12 +4,16 @@ import Prelude
 import Component.Board as Board
 import Data.Location (initialLocations)
 import Effect (Effect)
+import Halogen as H
 import Halogen.Aff as HA
 import Halogen.VDom.Driver (runUI)
+import AppM (runAppM)
 
 main :: Effect Unit
 main = do
-  locations <- initialLocations
   HA.runHalogenAff do
+    locations <- runAppM initialLocations
     body <- HA.awaitBody
-    runUI Board.component locations body
+    let
+      app = H.hoist runAppM Board.component
+    runUI app locations body
